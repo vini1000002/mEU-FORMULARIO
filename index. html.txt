@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cadastro de Contato</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#6ee7b7; --muted:#9aa4b2;
+      --glass: rgba(255,255,255,0.03);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background: linear-gradient(180deg,#071126 0%, #08182a 100%);
+      color:#e6eef6;
+      padding:32px;
+    }
+    .card{
+      width:100%; max-width:520px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:12px; padding:28px; box-shadow:0 8px 30px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.04);
+    }
+    h1{margin:0 0 6px 0; font-size:20px}
+    p.lead{margin:0 0 18px 0; color:var(--muted); font-size:13px}
+    label{display:block; font-size:13px; margin-bottom:6px; color:#cfe7db}
+    .row{display:grid; grid-template-columns:1fr; gap:12px; margin-bottom:12px}
+    input[type="text"], input[type="email"], input[type="tel"]{
+      width:100%; padding:12px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);
+      background:var(--glass); color:inherit; outline:none; font-size:14px;
+    }
+    input:focus{box-shadow:0 4px 18px rgba(109, 199, 171, 0.08); border-color: rgba(110,231,183,0.18)}
+    .small{font-size:12px; color:var(--muted); margin-top:6px}
+    .actions{display:flex; gap:10px; margin-top:10px}
+    button{
+      cursor:pointer; border:0; padding:10px 14px; border-radius:10px; font-weight:600; color:#052017;
+      background:linear-gradient(90deg,var(--accent), #34d399); box-shadow:0 6px 18px rgba(52,211,153,0.12)
+    }
+    button.secondary{background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.04)}
+    .msg{padding:10px 12px; border-radius:8px; margin-top:10px; font-size:14px}
+    .msg.success{background:rgba(34,197,94,0.12); color:#86efac}
+    .msg.error{background:rgba(239,68,68,0.08); color:#fecaca}
+    .hint{font-size:12px; color:var(--muted); margin-top:10px}
+  </style>
+</head>
+<body>
+  <main class="card" role="main">
+    <h1>Cadastre seus dados</h1>
+    <p class="lead">Deixe seu nome, e‑mail e celular para entrarmos em contato.</p>
+
+    <form id="contactForm" autocomplete="on" novalidate>
+      <div class="row">
+        <div>
+          <label for="name">Nome</label>
+          <input id="name" name="name" type="text" placeholder="Seu nome completo" required minlength="2" />
+        </div>
+
+        <div>
+          <label for="email">E‑mail</label>
+          <input id="email" name="email" type="email" placeholder="exemplo@dominio.com" required />
+        </div>
+
+        <div>
+          <label for="phone">Número de celular</label>
+          <input id="phone" name="phone" type="tel" placeholder="+55 (11) 91234-5678" pattern="^\+?[0-9\s\-\(\)]{8,25}$" required />
+          <div class="small">Formato internacional recomendado: +55 11912345678</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit">Enviar</button>
+        <button type="reset" class="secondary">Limpar</button>
+      </div>
+
+      <div id="result" aria-live="polite"></div>
+      <div class="hint">Ao enviar, seus dados serão processados conforme nossa política de privacidade.</div>
+    </form>
+  </main>
+
+  <script>
+    // Validações adicionais e envio via Fetch para /api/submit
+    (function(){
+      const form = document.getElementById('contactForm');
+      const result = document.getElementById('result');
+
+      function showMessage(text, type='success') {
+        result.innerHTML = '';
+        const div = document.createElement('div');
+        div.className = 'msg ' + (type === 'success' ? 'success' : 'error');
+        div.textContent = text;
+        result.appendChild(div);
+      }
+
+      function validatePhone(phone) {
+        // permite espaços, parênteses, + e hífen. Deve ter ao menos 8 dígitos.
+        const digits = phone.replace(/\\D/g, '');
+        return digits.length >= 8 && digits.length <= 15;
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        result.innerHTML = '';
+
+        const name = form.name.value.trim();
+        const email = form.email.value.trim();
+        const phone = form.phone.value.trim();
+
+        // validações simples
+        if (name.length < 2) { showMessage('Nome muito curto.', 'error'); return; }
+        if (!/.+@.+\\..+/.test(email)) { showMessage('E‑mail inválido.', 'error'); return; }
+        if (!validatePhone(phone)) { showMessage('Celular inválido. Use números suficientes.', 'error'); return; }
+
+        // preparar payload
+        const payload = { name, email, phone };
+
+        try {
+          const res = await fetch('/api/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(()=>({message:'Erro desconhecido'}));
+            showMessage('Falha ao enviar: ' + (err.message || res.statusText), 'error');
+            return;
+          }
+
+          const data = await res.json();
+          showMessage(data.message || 'Enviado com sucesso!');
+          form.reset();
+        } catch (err) {
+          showMessage('Erro de conexão. Tente novamente.', 'error');
+          console.error(err);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
